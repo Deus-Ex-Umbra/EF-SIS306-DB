@@ -1,0 +1,18 @@
+[GET]    /api/ciudades
+[GET]    /api/generos
+
+[POST]   /api/ubicaciones
+[POST]   /api/clientes
+[DELETE] /api/clientes/:id       <-- (Param: ID Cliente)
+
+[GET]    /api/libros
+[POST]   /api/libros
+[PUT]    /api/libros/precio
+[GET]    /api/libros/:id/precios <-- (Param: ID Libro)
+
+[GET]    /api/pedidos
+[POST]   /api/pedidos
+[POST]   /api/pedidos/detalle
+[PUT]    /api/pedidos/estado
+
+[GET]    /api/reportes/ventas-ciudad
