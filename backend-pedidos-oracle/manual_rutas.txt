@@ -1,0 +1,150 @@
+================================================================================
+DOCUMENTACIÓN DE API REST - SISTEMA DE PEDIDOS ORACLE (ACTUALIZADO)
+================================================================================
+
+URL BASE: http://localhost:3000
+
+NOTAS GENERALES:
+- Todas las respuestas están en formato JSON.
+- Los errores devuelven status 500 con un objeto { "error": "mensaje..." }.
+- Errores de validación (como borrar cliente con pedidos) devuelven 400.
+
+================================================================================
+1. CATÁLOGOS (LECTURA)
+================================================================================
+
+[GET] /api/ciudades
+--------------------------------------------------------------------------------
+Descripción: Obtiene la lista de ciudades disponibles para llenar combos/selects.
+Base de Datos: Vista -> v_lista_ciudades
+Body: N/A
+Respuesta: Array [{ "ID_CIUDAD": 1, "NOMBRE_CIUDAD": "Santa Cruz" }, ...]
+
+[GET] /api/generos
+--------------------------------------------------------------------------------
+Descripción: Obtiene la lista de géneros literarios disponibles.
+Base de Datos: Vista -> v_lista_generos
+Body: N/A
+Respuesta: Array [{ "ID_GENERO": 1, "NOMBRE_GENERO": "Ficción" }, ...]
+
+
+================================================================================
+2. CLIENTES Y UBICACIONES
+================================================================================
+
+[POST] /api/ubicaciones
+--------------------------------------------------------------------------------
+Descripción: Paso previo a crear cliente. Registra una dirección física.
+Base de Datos: Procedimiento -> sp_insertar_ubicacion
+Body (JSON):
+{
+  "id_ciudad": 1,          // (Number) ID del catálogo
+  "direccion": "Calle 123" // (String)
+}
+Respuesta: { "message": "Ubicación creada", "id_ubicacion": 501 }
+
+[POST] /api/clientes
+--------------------------------------------------------------------------------
+Descripción: Registra un nuevo cliente usando una ubicación existente.
+Base de Datos: Procedimiento -> sp_insertar_cliente
+Body (JSON):
+{
+  "correo": "juan@test.com", // (String) Único
+  "nombre": "Juan Perez",    // (String)
+  "id_ubicacion": 501        // (Number) ID devuelto por /api/ubicaciones
+}
+Respuesta: { "message": "Cliente creado", "id_cliente": 20 }
+
+[DELETE] /api/clientes/:id
+--------------------------------------------------------------------------------
+Descripción: Elimina un cliente por su ID.
+Restricción: No se puede borrar si el cliente tiene pedidos (Integridad Referencial).
+Base de Datos: Procedimiento -> sp_eliminar_cliente
+Params (URL): :id (El ID del cliente, ej: /api/clientes/20)
+Body: N/A
+Respuesta Exito: { "message": "Cliente 20 eliminado correctamente" }
+Respuesta Error (400): { "error": "No se puede borrar: El cliente tiene pedidos." }
+
+
+================================================================================
+3. GESTIÓN DE LIBROS
+================================================================================
+
+[GET] /api/libros
+--------------------------------------------------------------------------------
+Descripción: Obtiene el catálogo actual de libros (solo precios vigentes).
+Base de Datos: Vista -> v_catalogo_libros
+Body: N/A
+Respuesta: Array de libros con autor, género y precio actual.
+
+[POST] /api/libros
+--------------------------------------------------------------------------------
+Descripción: Crea un nuevo libro.
+Base de Datos: Procedimiento -> sp_insertar_libro
+Body (JSON):
+{
+  "id_genero": 2,          // (Number)
+  "autor": "J.K. Rowling", // (String)
+  "precio": 199.99         // (Number)
+}
+Respuesta: { "message": "Libro creado", "id_libro": 105 }
+
+[PUT] /api/libros/precio
+--------------------------------------------------------------------------------
+Descripción: Actualiza el precio (cierra histórico anterior, abre uno nuevo).
+Base de Datos: Procedimiento -> sp_actualizar_precio_libro
+Body (JSON):
+{
+  "id_libro": 105,       // (Number)
+  "nuevo_precio": 250.00 // (Number)
+}
+Respuesta: { "message": "Precio actualizado" }
+
+[GET] /api/libros/:id/precios
+--------------------------------------------------------------------------------
+Descripción: Obtiene todo el historial de cambios de precio de un libro.
+Base de Datos: Vista -> v_historial_precios
+Params (URL): :id (ID del libro, ej: /api/libros/105/precios)
+Body: N/A
+Respuesta: Array [{ "PRECIO": 199.99, "FECHA_INICIO": "...", "ESTADO_PRECIO": "HISTÓRICO" }, ...]
+
+
+================================================================================
+4. GESTIÓN DE PEDIDOS (FLUJO PRINCIPAL)
+================================================================================
+
+[GET] /api/pedidos
+--------------------------------------------------------------------------------
+Descripción: Listado completo de pedidos.
+Base de Datos: Vista -> v_pedidos_completo
+Body: N/A
+
+[POST] /api/pedidos
+--------------------------------------------------------------------------------
+Descripción: Paso 1. Crea la cabecera (Estado 'Pendiente').
+Base de Datos: Procedimiento -> sp_crear_pedido
+Body (JSON): { "id_cliente": 20 }
+Respuesta: { "message": "Pedido iniciado", "id_pedido": 800 }
+
+[POST] /api/pedidos/detalle
+--------------------------------------------------------------------------------
+Descripción: Paso 2. Agrega libros (Solo si está Pendiente).
+Base de Datos: Procedimiento -> sp_agregar_detalle_pedido
+Body (JSON): { "id_pedido": 800, "id_libro": 105, "cantidad": 2 }
+
+[PUT] /api/pedidos/estado
+--------------------------------------------------------------------------------
+Descripción: Paso 3. Avanza el flujo ('Pagado', 'Enviado', 'Entregado', 'Cancelado').
+Base de Datos: Procedimiento -> sp_cambiar_estado_pedido
+Body (JSON): { "id_pedido": 800, "nuevo_estado": "Pagado" }
+
+
+================================================================================
+5. REPORTES
+================================================================================
+
+[GET] /api/reportes/ventas-ciudad
+--------------------------------------------------------------------------------
+Descripción: Total de ventas agrupadas por ciudad.
+Base de Datos: Vista -> v_ventas_por_ciudad
+Body: N/A
